@@ -1,0 +1,14 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.env
+.env.local
+prisma/*.db
+prisma/*.db-journal
+uploads/*
+!uploads/.gitkeep
+coverage/
+# Frank's personal files: kept on his computer, not in the public repo.
+FRANK_VOICE.md
+seed/seed.json

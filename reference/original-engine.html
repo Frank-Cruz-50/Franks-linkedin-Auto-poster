@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Supply Chain Content Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap">
+<style>
+/* VOICE: a working desk tool, calm and exact, like a freight timetable.
+   IDEA: the station departure board — each post is a departure with a date and a track.
+   PICTURE: the live board itself: batch feed, version picker, calendar rows with hanging dates.
+   COLOUR and TYPE: white, black, signal red, one grey; Archivo wide 800 for numerals and titles.
+   LAYOUT: strict left edge, thick top rule, big numerals hanging in a left column. */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#0e0e0e);--ink:light-dark(#0b0b0b,#f2f2f2);--mut:light-dark(#6b6b6b,#9a9a9a);--line:light-dark(#d9d9d9,#2a2a2a);--soft:light-dark(#f3f3f3,#181818);--red:#e4002b;--ok:light-dark(#0b0b0b,#f2f2f2)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,sans-serif;overflow-x:clip}
+a{color:inherit}
+.wide{font-stretch:112%;font-weight:800;letter-spacing:-.01em}
+header{border-top:10px solid var(--ink);padding:28px max(5vw,18px) 8px}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.05;margin:0 0 8px;text-wrap:balance}
+.sub{color:var(--mut);margin:0 0 24px;font-size:16px;max-width:60ch}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));border-top:2px solid var(--ink)}
+.cell{padding:18px 20px 20px 0}
+.cell+.cell{padding-left:20px;border-left:1px solid var(--line)}
+@media(max-width:600px){.cell+.cell{border-left:0;padding-left:0;border-top:1px solid var(--line)}}
+.togs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:0 28px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 0}
+.tog .lbl{display:block;margin-top:2px}
+.lbl{font-size:13px;color:var(--mut);line-height:1.45}
+.big{font-size:clamp(26px,5vw,34px);line-height:1.05;margin:6px 0 4px}
+.meter{height:8px;background:var(--soft);margin:10px 0 8px;position:relative}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--ink)}
+.meter b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--red);left:85%}
+.tog{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:56px;padding:8px 0}
+.sw{appearance:none;width:46px;height:26px;border-radius:13px;background:var(--line);position:relative;cursor:pointer;flex:none;margin:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--bg);transition:left .15s}
+.sw:checked{background:var(--red)}.sw:checked::after{left:23px}
+nav{display:flex;gap:10px;overflow-x:auto;padding:0 max(5vw,18px);margin-top:8px;border-bottom:2px solid var(--ink);position:sticky;top:0;background:var(--bg);z-index:5}
+nav button{flex:none;background:none;border:0;border-bottom:4px solid transparent;padding:14px 8px 10px;font:600 15px Archivo,sans-serif;color:var(--mut);cursor:pointer;white-space:nowrap;min-height:44px}
+nav button[aria-current=true]{color:var(--ink);border-color:var(--red)}
+main{padding:32px max(5vw,18px) 80px;max-width:900px}
+.note{background:var(--soft);padding:14px 18px;font-size:15px;margin:0 0 20px;border-left:4px solid var(--ink)}
+.note.red{border-color:var(--red)}
+h2{font-size:clamp(22px,4vw,30px);line-height:1.12;margin:4px 0 10px;text-wrap:balance}
+h3{font-size:19px;line-height:1.3;margin:0 0 8px}
+.mix{display:flex;height:10px;margin:14px 0 8px}.mix i{background:var(--ink)}.mix i+i{background:var(--red)}
+.row{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:32px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:2px solid var(--ink)}
+@media(max-width:600px){.row{grid-template-columns:minmax(0,1fr);gap:10px;padding:28px 0}}
+.num{font-size:42px;line-height:1}
+.num small{white-space:nowrap}
+.num small{display:block;font:500 13px Archivo,sans-serif;color:var(--mut);margin-top:4px;font-stretch:100%}
+.meta{font-size:14px;color:var(--mut);line-height:1.5}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:12px}
+.row p{margin:12px 0}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border:1.5px solid var(--ink)}
+.pill.red{border-color:var(--red);color:var(--red)}
+ul.stats{margin:16px 0;padding:14px 18px 14px 34px;background:var(--soft);font-size:15px}ul.stats li{margin:6px 0}
+.why{border-left:3px solid var(--red);padding-left:12px;margin:16px 0}
+.btn{font:700 15px Archivo,sans-serif;min-height:44px;padding:10px 16px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,nav button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,.sw:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+.acts{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
+textarea,input[type=text],input[type=number],input[type=datetime-local],select{width:100%;font:16px/1.5 Archivo,sans-serif;padding:10px 12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea{min-height:140px;resize:vertical}
+label.f{display:block;font-size:14px;color:var(--mut);margin:22px 0 8px}
+.seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:18px 0 8px}
+.seg button{font:600 15px Archivo,sans-serif;min-height:56px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;padding:6px 8px;text-align:left}
+.seg button[aria-pressed=true]{border:2px solid var(--ink);background:var(--soft)}
+.seg em{display:block;font-style:normal;font-size:11px;color:var(--red);font-weight:800}
+.opt{display:flex;gap:14px;align-items:flex-start;padding:16px 0;line-height:1.5;border-top:1px solid var(--line);cursor:pointer}
+.opt input{margin-top:5px;width:18px;height:18px;flex:none;accent-color:var(--red)}
+.card{border-top:2px solid var(--ink);padding:22px 0 36px}
+.card+.card{margin-top:8px}
+.step{font-size:13px;color:var(--red);font-weight:800;display:block;margin-bottom:4px}
+.count{font-size:14px;margin-top:8px}.count.bad{color:var(--red)}
+details{border-top:1px solid var(--line);padding:14px 0;margin-top:12px}summary{cursor:pointer;font-weight:700;min-height:32px;display:flex;align-items:center}
+details[open] summary{margin-bottom:10px}
+.prev{white-space:pre-wrap;background:var(--soft);padding:14px;font-size:15px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:13px;color:var(--mut);font-weight:600;border-bottom:2px solid var(--ink);padding:10px 12px 10px 0}
+td{border-bottom:1px solid var(--line);padding:14px 12px 14px 0;vertical-align:top}
+td.n{text-align:right;white-space:nowrap}td input{min-width:80px;padding:6px 8px}
+@media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:18px;border-bottom:1px solid var(--line);gap:6px}.stack td{display:flex;justify-content:space-between;align-items:center;gap:16px;border:0;padding:3px 0}.stack td::before{content:attr(data-l);color:var(--mut)}}
+.goal{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:28px;margin:18px 0 36px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;font-size:14px;max-width:min(92vw,520px);z-index:20;display:none}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:r .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes r{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}.sw::after{transition:none}}
+.feedhead{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between;margin-bottom:8px}
+.old{color:var(--red);font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.ph{padding:0;border:2px solid transparent;background:var(--soft);min-height:88px;overflow:hidden;cursor:pointer;display:block;width:100%;text-align:left;color:var(--ink);font:inherit}
+.ph[aria-pressed=true]{border-color:var(--red);outline:2px solid var(--red)}
+.ph img,.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb{width:min(100%,300px);overflow:hidden;background:var(--soft);margin:10px 0 6px;border-left:3px solid var(--red)}
+.thumb.sm{width:150px}
+.phx{display:flex;flex-direction:column;gap:4px;padding:8px 10px;font-size:13px;line-height:1.3;color:var(--ink);height:100%;overflow-wrap:anywhere}
+.phx small{color:var(--mut);font-size:11px}
+.phc a{display:inline-block;font-size:12px;color:var(--mut);margin-top:6px;min-height:24px}
+.trendbox{border-top:2px solid var(--red);padding-top:18px;margin:4px 0 28px}
+.tl{margin:8px 0;padding-left:22px}.tl li{margin:10px 0;line-height:1.4}
+.trend{border-left:3px solid var(--red);padding-left:12px;margin:12px 0;font-size:15px}
+.lnk{background:none;border:0;padding:0;color:var(--red);font:inherit;cursor:pointer;text-decoration:underline;min-height:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1 class="wide">Supply chain content engine</h1>
+  <p class="sub">Research → angles → 4 versions → bank or schedule. Every post stays off your job and on the data.</p>
+  <div class="strip">
+    <div class="cell"><div class="lbl">Suggested version</div><div class="big wide" id="sugName">—</div><div class="lbl" id="sugWhy">Builds after 3 picks</div></div>
+    <div class="cell"><div class="lbl">Suggested-pick rate, last 30</div><div class="big wide" id="rate">0%</div><div class="meter"><i id="rateBar" style="width:0"></i><b title="85% goal"></b></div><div class="lbl" id="rateN">0 of 30 picks logged · goal 85%</div></div>
+  </div>
+  <div class="togs">
+    <div class="tog"><span>Auto-load 10 articles<span class="lbl">Mon · Wed · Fri, 5:47am</span></span><input type="checkbox" class="sw" id="tAuto" aria-label="Auto-load articles"></div>
+    <div class="tog"><span>Autopilot posting<span class="lbl" id="apNote">Runs once 85% is hit</span></span><input type="checkbox" class="sw" id="tPilot" aria-label="Autopilot posting"></div>
+  </div>
+</header>
+<nav id="nav">
+  <button data-t="feed">Research feed</button><button data-t="gen">Generate</button><button data-t="drafts">Drafts</button><button data-t="cal">Calendar</button><button data-t="lib">Library</button><button data-t="pb">Playbook</button>
+</nav>
+<main id="view"><p class="note">Loading your engine…</p></main>
+<div class="toast" id="toast" role="status"></div>
+<script>
+{
+const SS=365181, TF="Typefully - Social Media Scheduler", UN="Unsplash";
+const VERS=[{k:"safe_straight",l:"Safe · straight"},{k:"safe_funny",l:"Safe · funny"},{k:"contra_straight",l:"Contrarian · straight"},{k:"contra_funny",l:"Contrarian · funny"}];
+const VL=k=>(VERS.find(v=>v.k===k)||{l:"—"}).l;
+const PB_DEFAULT={
+ voice:"Andrew Yeung style. Plain words, grade 4–5 reading level. 1–2 sentence paragraphs. Confident, warm, a little wry: a sharp guy you'd grab lunch or hit the gym with. More data than a typical creator post: 2–4 hard numbers, each tied to its source by name. 1,000–1,500 characters total. No links in the post. Assume a paired photo or carousel.",
+ structure:"1) Hook line. 2) Short high-stakes story: the news itself, or a clearly hypothetical 'Picture this' scene. 3) Counterintuitive pivot. 4) 2–3 numbered tactical takeaways with **bold lead-ins**. 5) 1–2 line human takeaway. 6) Closing question to the reader.",
+ guardrails:"Never open with 'I'. Zero references to Frank's job, employer, past roles or experience. Never invent personal stories, clients, conversations or results. Only use numbers that appear in the source facts. On tariffs and trade, explain effects; don't cheer or attack any politician or party.",
+ hooks:"Under ~12 words so it fits the first 2 lines on mobile. Lead with a specific number when possible. Working now: stat hooks, story hooks, contrarian hooks, juxtaposition (two facts in stark contrast). Avoid question hooks and imperative hooks ('Read this', 'Stop scrolling').",
+ loves:"juxtaposition, stark contrast",
+ banned:"game-changer, in today's fast-paced world, delve, landscape, leverage, unlock, navigate the complexities, synergy, paradigm shift, it's not just X it's Y, buckle up, let that sink in, here's the kicker, Agree?, Thoughts?, emoji bullets, more than 3 hashtags",
+ research:"10 articles per batch, picked by trend score (LinkedIn-wide heat first, then supply chain and business voices) from about 20 candidates, drawn from at least 5 of these 10 lanes (no more than 3 from one lane): 1) AI and automation in supply chain; 2) tariffs and trade policy; 3) freight markets (ocean, air, truck, rail rates and capacity); 4) ports, rail and labor (strikes, contracts, congestion); 5) parcel, last-mile and retail/e-commerce; 6) manufacturing, sourcing and reshoring; 7) tech outages and cyberattacks (cloud, software, air traffic control and other critical systems); 8) energy, fuel and commodities; 9) weather, disasters and geopolitics; 10) the week's biggest general news with a business ripple, even if supply chain outlets haven't covered it yet. Search every lane each run, and always include at least one search for the week's top national and global news. If a major disruption happened that week (outage, ground stop, cyberattack, big storm, strike, shutdown), it goes in the batch. Mostly published in the last 14 days; nothing older than 30 days, evergreen picks included. Mix this week's headlines with evergreen pieces (recent reports and research with staying power) and label each. Show source, link and summary before any writing. Favor primary sources and named data."};
+const PB_FIELDS=[["voice","Voice"],["structure","Post structure"],["guardrails","Guardrails"],["hooks","Hook rules"],["loves","Words you love"],["banned","Banned words and phrases"],["research","Research rules"]];
+const S={articles:[],batches:[],posts:[],drafts:[],trends:[],settings:{autoResearch:true,autopilot:false},pb:null,tab:"feed",gen:{},calEdit:null,draftEdit:null,loaded:{a:0,p:0,s:0,d:0}};
+let db=null,sample=null,mcp=null,assets=null;
+const OWN={};
+const $=id=>document.getElementById(id), view=$("view");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const md=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+const toast=(m,ms=3200)=>{const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",ms)};
+const pb=()=>Object.assign({},PB_DEFAULT,S.pb||{});
+const bold=s=>s.replace(/\*\*(.+?)\*\*/g,(_,t)=>[...t].map(c=>{const o=c.codePointAt(0);if(o>=65&&o<=90)return String.fromCodePoint(0x1D5D4+o-65);if(o>=97&&o<=122)return String.fromCodePoint(0x1D5EE+o-97);if(o>=48&&o<=57)return String.fromCodePoint(0x1D7EC+o-48);return c}).join(""));
+const fmtD=iso=>{if(!iso)return"";const d=new Date(iso);return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})};
+const localInput=d=>{const p=n=>String(n).padStart(2,"0");return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`};
+function nextSlot(){const taken=new Set(S.posts.filter(p=>p.scheduledFor).map(p=>new Date(p.scheduledFor).toDateString()));const d=new Date();d.setHours(7,52,0,0);for(let i=0;i<60;i++){if([1,3,5].includes(d.getDay())&&d>new Date()&&!taken.has(d.toDateString()))return d;d.setDate(d.getDate()+1)}return d}
+
+/* ---------- suggested version + 85% tracker ---------- */
+function track(){
+ const picked=S.posts.filter(p=>p.chosenVersion&&!p.autopilot).sort((a,b)=>String(b.pickedAt||"").localeCompare(String(a.pickedAt||""))).slice(0,30);
+ const c={};picked.forEach(p=>c[p.chosenVersion]=(c[p.chosenVersion]||0)+1);
+ let sug=null;if(picked.length>=3){sug=Object.keys(c).sort((a,b)=>c[b]-c[a]||(picked.findIndex(p=>p.chosenVersion===a)-picked.findIndex(p=>p.chosenVersion===b)))[0]}
+ const w=picked.filter(p=>p.suggestedAtPick),hits=w.filter(p=>p.suggestedAtPick===p.chosenVersion).length;
+ const rate=w.length?hits/w.length:0;return{sug,n:w.length,hits,rate,ready:w.length>=30&&rate>=.85,picks:picked.length}}
+function paintStrip(){
+ const t=track();$("sugName").textContent=t.sug?VL(t.sug):"—";
+ $("sugWhy").textContent=t.sug?`Your most-picked in the last ${t.picks}`:`Builds after 3 picks (${t.picks} so far)`;
+ $("rate").textContent=Math.round(t.rate*100)+"%";$("rateBar").style.width=Math.round(t.rate*100)+"%";
+ $("rateN").textContent=`${t.n} of 30 picks logged · goal 85%`+(t.ready?" · reached":"");
+ $("tAuto").checked=S.settings.autoResearch!==false;$("tPilot").checked=!!S.settings.autopilot;
+ $("apNote").textContent=t.ready?(S.settings.autopilot?"Live: writes + schedules M/W/F":"Ready — 85% reached"):"Runs once 85% is hit";
+ if(db&&t.ready&&!S.settings.ready85)saveSettings({ready85:true,ready85At:new Date().toISOString()});
+}
+async function saveSettings(patch){Object.assign(S.settings,patch);if(!db)return;try{await db.doc("settings/main").set({...S.settings})}catch(e){toast("Couldn't save settings: "+e.message)}}
+$("tAuto").onchange=e=>{saveSettings({autoResearch:e.target.checked});toast(e.target.checked?"New articles will load Mon, Wed and Fri.":"Auto-load off. Say “new batch” in chat when you want articles.")};
+$("tPilot").onchange=e=>{saveSettings({autopilot:e.target.checked});const t=track();toast(e.target.checked?(t.ready?"Autopilot on: suggested version gets written and scheduled M/W/F.":"Autopilot armed. It starts once your picks hit 85% over 30 posts; you'll get a ping."):"Autopilot off. Nothing posts without you.",4500);paintStrip()};
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>go(b.dataset.t));
+function go(t){S.tab=t;if(location.hash!=="#"+t)history.replaceState(null,"","#"+t);render();window.scrollTo({top:0})}
+function render(){document.querySelectorAll("#nav button").forEach(b=>b.setAttribute("aria-current",b.dataset.t===S.tab));paintStrip();({feed:rFeed,gen:rGen,drafts:rDrafts,cal:rCal,lib:rLib,pb:rPb}[S.tab]||rFeed)()}
+const busy=()=>view.contains(document.activeElement)&&/TEXTAREA|INPUT|SELECT/.test(document.activeElement.tagName);
+
+/* ---------- Research feed ---------- */
+const ago=d=>{if(!d)return"";const n=Math.floor((Date.now()-new Date(d+"T12:00"))/864e5);return n<=0?"today":n===1?"1 day ago":n+" days ago"};
+const pending=()=>{const r=S.settings.searchRequestedAt;if(!r)return false;const newer=S.batches.some(b=>String(b.createdAt)>r);return!newer&&Date.now()-new Date(r)<90*6e4};
+function rFeed(){
+ if(!S.loaded.a){view.innerHTML=`<p class="note">${db?"Loading articles…":"Sign in on claude.ai to load your feed."}</p>`;return}
+ const bs=[...S.batches].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+ const pend=pending();
+ const head=`<div class="feedhead"><div><h2 class="wide" style="margin:0">${bs.length?"Batch · "+esc(fmtD(bs[0].createdAt)):"Research feed"}</h2></div>
+  <button class="btn red" id="findNew" ${pend?"disabled":""}>${pend?'<span class="spin"></span>Request queued…':"Find new articles"}</button></div>
+  ${pend?`<p class="note">Request queued. Claude checks every hour from 6am to 10pm, researches 10 different articles from the last two weeks, and drops them here. You can close this page.</p>`:""}`;
+ if(!bs.length){view.innerHTML=head+`<p class="note">No batch yet. Tap Find new articles, or wait for Monday, Wednesday or Friday at 5:47am.</p>`;bindFind();return}
+ const used=new Set(S.posts.map(p=>p.articleId));
+ const card=(a,i)=>{const days=a.date?Math.floor((Date.now()-new Date(a.date+"T12:00"))/864e5):0;return`<div class="row"><div class="num wide">${esc((a.date||"").slice(8,10)||"·")}<small>${esc(a.date?new Date(a.date+"T12:00").toLocaleDateString(undefined,{month:"short",year:"numeric"}):"")}</small></div><div>
+   <div class="top">${a.trendScore!=null?`<span class="pill red">#${i+1} trending · ${esc(a.trendScore)}</span>`:""}<span class="pill ${a.tag==="headline"&&a.trendScore==null?"red":""}">${a.tag==="headline"?"This week's headline":"Evergreen"}</span><span class="meta">${esc(a.topic||"")}</span><span class="meta ${days>30?"old":""}">${esc(ago(a.date))}${days>30?" · older than a month":""}</span>${used.has(a.id)?`<span class="meta">· written</span>`:""}</div>
+   <h3><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)} ↗</a></h3>
+   <div class="meta">${esc(a.source)}</div>${a.trendWhy?`<p class="trend"><b>Why it's trending:</b> ${esc(a.trendWhy)} <span class="meta">(${a.trendSource==="linkedin"?"LinkedIn check":"news signals"})</span></p>`:""}<p>${esc(a.summary)}</p>
+   ${(a.stats||[]).length?`<ul class="stats">${a.stats.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`:""}
+   ${a.why?`<p class="meta why">${esc(a.why)}</p>`:""}
+   ${(a.photos||[]).length?`<div class="meta" style="margin-top:14px">Photo picks · tap one to write with it</div><div class="grid">${a.photos.slice(0,3).map(p=>`<div class="phc"><button class="ph" data-phfeed="${esc(a.id)}|${esc(p.id)}" aria-label="Write with this photo: ${esc(p.alt||"")}">${img(p)}</button>${see(p)}</div>`).join("")}</div>`:""}
+   <div class="acts"><button class="btn" data-write="${esc(a.id)}">Write from this</button>${(a.photos||[]).length?"":`<button class="btn ghost" data-phart="${esc(a.id)}" ${mcp?"":"disabled"}>${S.phBusy===a.id?'<span class="spin"></span>Finding photos…':"Find photos"}</button>`}</div></div></div>`};
+ const block=(b,open)=>{const arts=S.articles.filter(a=>a.batchId===b.id).sort(byTrend);const h=arts.filter(a=>a.tag==="headline").length,pc=arts.length?Math.round(h/arts.length*100):0;
+  return open?`<div class="mix"><i style="width:${pc}%"></i><i style="width:${100-pc}%"></i></div><p class="meta" style="margin:0 0 8px">${pc}% this week's headlines · ${100-pc}% evergreen${b.note?" · "+esc(b.note):""}</p>${arts.map(card).join("")}`
+   :`<details><summary>Batch · ${esc(fmtD(b.createdAt))} (${arts.length})</summary>${arts.map(card).join("")}</details>`};
+ view.innerHTML=head+trendPanel()+block(bs[0],true)+(bs.length>1?`<h3 style="margin-top:40px">Earlier batches</h3>`+bs.slice(1).map(b=>block(b,false)).join(""):"");
+ view.querySelectorAll("[data-write]").forEach(b=>b.onclick=()=>{const a=S.articles.find(x=>x.id===b.dataset.write);S.gen={article:a};go("gen")});
+ view.querySelectorAll("[data-phart]").forEach(b=>b.onclick=()=>articlePhotos(b.dataset.phart));
+ view.querySelectorAll("[data-phfeed]").forEach(b=>b.onclick=()=>{const [aid,pid]=b.dataset.phfeed.split("|"),a=S.articles.find(x=>x.id===aid);S.gen={article:a,photoPick:(a.photos||[]).find(p=>p.id===pid)||null};go("gen")});
+ bindFind();
+}
+/* ---------- Trending ---------- */
+const byTrend=(x,y)=>((y.trendScore??-1)-(x.trendScore??-1))||String(x.createdAt).localeCompare(String(y.createdAt));
+const latestTrend=()=>[...S.trends].sort((a,b)=>String(b.checkedAt||"").localeCompare(String(a.checkedAt||"")))[0];
+const agoTs=iso=>{if(!iso)return"";const h=Math.floor((Date.now()-new Date(iso))/36e5);return h<1?"just now":h<24?h+"h ago":Math.floor(h/24)+"d ago"};
+function trendPanel(){const t=latestTrend(),busy=S.trBusy;
+ return`<div class="trendbox"><div class="feedhead"><h3 style="margin:0">What's trending</h3><button class="btn ghost" id="trCheck" ${busy?"disabled":""}>${busy?'<span class="spin"></span>'+esc(S.trStep||"Checking LinkedIn…"):"Check LinkedIn trends"}</button></div>
+ ${t?`<p class="meta" style="margin:6px 0">${t.source==="linkedin"?"Read from your LinkedIn":"From news signals"} · ${esc(agoTs(t.checkedAt))}</p>
+ ${(t.topics||[]).length?`<ol class="tl">${t.topics.slice(0,5).map(x=>`<li><b>${esc(x.topic)}</b>${x.heat!=null?` <span class="meta">· heat ${esc(x.heat)}</span>`:""}<br><span class="meta">${esc(x.why||"")}</span></li>`).join("")}</ol>`:""}
+ ${(t.formats||[]).length?`<p class="meta" style="margin:14px 0 0"><b>Formats taking off</b></p><ul class="tl">${t.formats.slice(0,3).map(f=>`<li><b>${esc(f.format)}</b><br><span class="meta">${esc(f.note||"")}</span></li>`).join("")}</ul>`:""}`
+ :`<p class="meta">No trend check yet. The Mon/Wed/Fri run ranks articles from news signals.</p>`}
+ <p class="meta" style="margin-bottom:0">The LinkedIn check reads your feed, Top stories and post searches. It works only in the Claude desktop app, signed in to LinkedIn in Claude's browser.</p></div>`}
+function trendFormats(){const t=latestTrend();const f=(t&&t.formats)||[];return f.length?`\nFORMATS TAKING OFF ON LINKEDIN NOW (lean into these when they fit): ${f.slice(0,3).map(x=>x.format+(x.note?" ("+x.note+")":"")).join("; ")}`:""}
+const BR="host:claude_browser",wait=ms=>new Promise(r=>setTimeout(r,ms));
+function brErr(e){const c=e&&e.code;if(c==="signin")return e.message;if(c==="server_not_connected"||c==="not_granted"||c==="capability_disabled"||c==="capability_removed")return"This works only in the Claude desktop app. Open the engine there and tap again.";if(c==="cancelled")return"A browser step was declined.";if(c==="not_in_manifest")return"Claude's browser is turned off for this page.";if(c==="approval_required")return"Claude's browser needs your OK. Tap again and choose Allow.";if(c==="tool_error")return"Claude's browser said: "+(e.message||"error");if(c==="rate_limited")return"Claude is busy. Wait a minute and try again.";return"LinkedIn check failed: "+(e&&e.message||"unknown")}
+async function brText(tabId){const r=await mcp.callTool(BR,"get_page_text",tabId!=null?{tabId}:{});const p=r.payload;
+ const t=typeof p==="string"?p:(p&&(p.text||p.content||p.pageText))||(r.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("\n")||"";return String(t).slice(0,7000)}
+async function brGo(url,tabId){if(tabId===undefined){const r=await mcp.callTool(BR,"preview_start",{url});const p=r.payload||{};let id=p.tabId??p.tab_id??(p.tab&&p.tab.id);
+  if(id==null){const m=(r.content||[]).map(c=>c.text||"").join(" ").match(/tab\s*id\W*(\w+)/i);id=m?m[1]:null}return id==null?null:(isNaN(+id)?id:+id)}
+ await mcp.callTool(BR,"navigate",tabId!=null?{url,tabId}:{url});return tabId}
+async function checkLinkedIn(){if(!mcp)return toast("Open this page in the Claude desktop app to check LinkedIn.");if(!sample)return toast("Claude access is needed to rank trends. Open this page on claude.ai.");
+ const bs=[...S.batches].sort((x,y)=>String(y.createdAt).localeCompare(String(x.createdAt))),arts=S.articles.filter(a=>bs[0]&&a.batchId===bs[0].id);if(!arts.length)return toast("No articles to rank yet.");
+ const step=s=>{S.trStep=s;rFeed()};S.trBusy=true;step("Opening LinkedIn…");
+ try{const tab=await brGo("https://www.linkedin.com/feed/");await wait(4000);const feed=await brText(tab);
+  if(/sign in|join now/i.test(feed.slice(0,2000))&&!/start a post|top stories/i.test(feed))throw{code:"signin",message:"Sign in to LinkedIn in Claude's browser (desktop app), then tap again."};
+  const pages=[["Your LinkedIn feed with Top stories (LinkedIn-wide)",feed]];
+  const look=async(label,kw,range)=>{step("Reading "+label+"…");await brGo("https://www.linkedin.com/search/results/content/?keywords="+encodeURIComponent(kw)+"&datePosted=%22"+range+"%22&sortBy=%22relevance%22",tab);await wait(3500);pages.push([label+" (post search, "+range+")",await brText(tab)])};
+  step("Picking search terms…");let kws=[];try{const r=await ask(`Give 4 short LinkedIn search phrases (1-3 words each) that together cover these news stories, so we can see how much LinkedIn is talking about them:\n${arts.map(a=>"- "+a.title).join("\n")}\nReturn JSON only: {"phrases":["","","",""]}`,"quick");kws=((r&&r.phrases)||[]).filter(Boolean).slice(0,4)}catch(e){}
+  await look("supply chain posts","supply chain","past-week");
+  for(const k of kws)await look("posts on "+k,k,"past-week");
+  step("Ranking articles…");
+  const r=await ask(`You rank news articles for a LinkedIn creator by what is trending on LinkedIn right now. Below is page text that a browser read from LinkedIn: the creator's feed (with LinkedIn News "Top stories") and post searches that show reaction and comment counts.
+Weigh LinkedIn-wide heat FIRST (Top stories, posts from anyone with big reaction/comment counts), then supply chain and business voices SECOND. Use only what is in the text; never invent numbers or posts.
+For each article give a score 0-100 for how well it rides what people are talking about now, and a "why": one plain sentence naming the signal you saw (e.g. "Top story on LinkedIn News; posts on it top 2K reactions").
+Also list the top 5 topics people are talking about (LinkedIn-wide first, then supply chain), each with heat 0-100 and a one-line why, and up to 3 post formats taking off (e.g. carousels, polls, contrarian hooks, stat-led hooks, short video, document posts) that you actually see doing well in this text, each with a short note on what you saw.
+
+ARTICLES:
+${arts.map(a=>`id=${a.id} | ${a.title} | ${a.topic||""}`).join("\n")}
+
+LINKEDIN TEXT:
+${pages.map(([l,t])=>"=== "+l+" ===\n"+t).join("\n\n")}
+
+Return JSON only: {"scores":[{"id":"","score":0,"why":""}],"topics":[{"topic":"","heat":0,"why":""}],"formats":[{"format":"","note":""}]}`,"complex");
+  const now=new Date().toISOString(),sc=(r&&r.scores)||[];if(!sc.length)throw{message:"the ranking came back empty. Try again."};
+  await db.doc("trends/t-"+now.replace(/\D/g,"").slice(0,12)).set({checkedAt:now,source:"linkedin",topics:(r.topics||[]).slice(0,5),formats:(r.formats||[]).slice(0,3)});
+  for(const s of sc){if(!arts.some(a=>a.id===s.id))continue;await db.doc("articles/"+s.id).update({trendScore:Math.max(0,Math.min(100,Math.round(+s.score||0))),trendWhy:String(s.why||"").slice(0,240),trendSource:"linkedin",trendCheckedAt:now})}
+  toast("Ranked by what's trending on your LinkedIn.")}
+ catch(e){toast(brErr(e),7000)}
+ S.trBusy=false;S.trStep="";rFeed()}
+function bindFind(){const t=$("trCheck");if(t)t.onclick=checkLinkedIn;const b=$("findNew");if(!b)return;b.onclick=async()=>{
+ if(!db)return toast("Sign in on claude.ai first.");
+ const latest=[...S.batches].sort((x,y)=>String(y.createdAt).localeCompare(String(x.createdAt)))[0]||{};
+ const shown=S.articles.filter(a=>a.batchId===latest.id).map(a=>a.title);
+ b.disabled=true;await saveSettings({searchRequestedAt:new Date().toISOString(),searchExclude:shown});
+ toast("Request sent. Claude checks hourly from 6am to 10pm and will drop 10 new articles here.",5500);rFeed()}}
+
+/* ---------- prompts ---------- */
+function rules(){const p=pb();return`You ghostwrite LinkedIn posts for Frank Cruz, who is building a supply chain thought-leadership presence for executives and a general business audience. He should read as competent, plugged-in and likeable.
+VOICE: ${p.voice}
+STRUCTURE: ${p.structure}
+GUARDRAILS: ${p.guardrails}
+HOOKS: ${p.hooks}
+WORDS HE LOVES (use naturally, not every post): ${p.loves}
+NEVER USE: ${p.banned}${trendFormats()}${examples()}`}
+function examples(){const d=S.drafts.filter(x=>x.learn!==false&&x.text).sort((a,b)=>String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||""))).slice(0,5);if(!d.length)return"";
+ return`
+
+FRANK'S BANKED DRAFTS: finished posts he approved. Study them for his voice, rhythm, hook style, takeaway format and closing questions, and write like this. Never copy their sentences, facts or numbers into a new post; facts come only from the ARTICLE.
+`+d.map((x,i)=>`--- Example ${i+1}${x.version?" ("+VL(x.version)+")":""} ---
+${String(x.text).slice(0,1700)}`).join("\n")}
+function artBlock(a){return`ARTICLE
+Title: ${a.title}
+Source: ${a.source} (${a.date||""})
+URL: ${a.url}
+Summary: ${a.summary}
+Facts you may use (only these numbers): ${(a.stats||[]).join(" | ")}
+${a.extra?"More facts: "+a.extra:""}`}
+const ask=async(prompt,tier)=>{const r=await sample.json(prompt,{modelTier:tier||"default"});return r};
+
+/* ---------- Generate ---------- */
+function rGen(){
+ const g=S.gen,a=g.article,t=track();
+ if(!a){const latest=[...S.articles].sort((x,y)=>String(y.createdAt||"").localeCompare(String(x.createdAt||""))).slice(0,10);
+  view.innerHTML=`<h2 class="wide">Pick an article</h2><p class="meta">Choose from the feed, or tap one below.</p>`+(latest.length?latest.map(x=>`<div class="opt" data-pick="${esc(x.id)}"><span class="pill ${x.tag==="headline"?"red":""}">${x.tag==="headline"?"Headline":"Evergreen"}</span><span>${esc(x.title)}<br><span class="meta">${esc(x.source)}</span></span></div>`).join(""):`<p class="note">No articles yet.</p>`);
+  view.querySelectorAll("[data-pick]").forEach(e=>e.onclick=()=>{S.gen={article:S.articles.find(x=>x.id===e.dataset.pick)};rGen()});return}
+ const can=!!sample;
+ let h=`<div class="card"><span class="pill ${a.tag==="headline"?"red":""}">${a.tag==="headline"?"This week's headline":"Evergreen"}</span><h2 class="wide">${esc(a.title)}</h2><p class="meta"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.source)} ↗</a> · ${esc(a.summary)}</p><button class="btn ghost" id="gBack">Change article</button></div>`;
+ if(!can)h+=`<p class="note red">Writing needs Claude access in this view. Open this page on claude.ai while signed in.</p>`;
+ // Step 1 angles
+ h+=`<div class="card"><span class="step">Step 1</span><h3>Angles</h3>`;
+ if(g.angles){h+=g.angles.map((x,i)=>`<label class="opt"><input type="radio" name="ang" value="${i}" ${g.angle===i?"checked":""}><span><b>${esc(x.title)}</b> <span class="pill">${x.story==="picture-this"?"Picture this":"News story"}</span><br>${esc(x.take)}<br><span class="meta">${esc(x.why||"")}</span></span></label>`).join("")}
+ h+=`<div class="acts"><button class="btn ${g.angles?"ghost":""}" id="gAng" ${can?"":"disabled"}>${g.loading==="ang"?'<span class="spin"></span>Finding angles…':g.angles?"New angles":"Find 3 angles"}</button></div></div>`;
+ // Step 2 versions
+ if(g.angles||g.versions){h+=`<div class="card"><span class="step">Step 2</span><h3>Four versions, five hooks each</h3><div class="acts"><button class="btn ${g.versions?"ghost":""}" id="gVer" ${can&&g.angles&&g.angle!=null?"":"disabled"}>${g.loading==="ver"?'<span class="spin"></span>Writing 4 versions…':g.versions?"Rewrite versions":"Write 4 versions"}</button></div>`;
+  if(g.versions){const cur=g.v||t.sug||"safe_straight",V=g.versions.find(v=>v.key===cur)||g.versions[0];
+   h+=`<div class="seg">${VERS.map(v=>`<button data-v="${v.k}" aria-pressed="${v.k===V.key}">${t.sug===v.k?"<em>Suggested</em>":""}${v.l}</button>`).join("")}</div>
+   <label class="f">Hooks</label>${V.hooks.map((x,i)=>`<label class="opt"><input type="radio" name="hk" value="${i}" ${(g.hk??0)===i?"checked":""}><span>${esc(x)}</span></label>`).join("")}
+   <label class="f" for="vBody">Body (after the hook)</label><textarea id="vBody" style="min-height:260px">${esc(V.body)}</textarea>
+   ${g.photo?`<details><summary>Photo idea</summary><p>${esc(g.photo)}</p></details>`:""}
+   ${g.carousel?`<details><summary>Carousel outline (${g.carousel.length} slides)</summary>${g.carousel.map((s,i)=>`<p><b>Slide ${i+1}: ${esc(s.h)}</b><br>${esc(s.t)}</p>`).join("")}<button class="btn ghost" id="cCopy">Copy outline</button></details>`:""}
+   <div class="acts"><button class="btn red" id="gUse">Use this version</button></div>`}
+  h+=`</div>`}
+ // Step 3 article
+ if(g.versions){h+=`<div class="card"><span class="step">Step 3</span><h3>Long-form article · 800–1,000 words</h3>`;
+  if(g.long){const wc=(g.long.body||"").split(/\s+/).filter(Boolean).length;h+=`<input type="text" id="lTitle" value="${esc(g.long.title)}" aria-label="Article title"><label class="f" for="lBody">Body · ${wc} words</label><textarea id="lBody" style="min-height:360px">${esc(g.long.body)}</textarea><div class="acts"><button class="btn ghost" id="lCopy">Copy article</button><button class="btn ghost" id="lSave">Save edits</button></div>`}
+  h+=`<div class="acts"><button class="btn ${g.long?"ghost":""}" id="gLong" ${can?"":"disabled"}>${g.loading==="long"?'<span class="spin"></span>Writing article…':g.long?"Rewrite article":"Write the article"}</button></div></div>`}
+ // Step 4 compose
+ if(g.final!=null){const n=g.final.length,bad=n<1000||n>1500;
+  h+=`<div class="card" id="compose"><span class="step">Step 4</span><h3>Final post</h3><textarea id="fText" style="min-height:320px">${esc(g.final)}</textarea><div class="count ${bad?"bad":""}" id="fCount">${n.toLocaleString()} characters · target 1,000–1,500</div>
+  <details><summary>Preview with bold lead-ins</summary><div class="prev" id="fPrev">${md(g.final)}</div></details>
+  ${photoBlock()}
+  <label class="f" for="fWhen">Post on</label><input type="datetime-local" id="fWhen" value="${esc(g.when||localInput(nextSlot()))}">
+  <div class="acts"><button class="btn red" id="fSched">Schedule in Typefully</button><button class="btn" id="fBank">Bank in Drafts</button><button class="btn ghost" id="fDraft">Save as Typefully draft</button><button class="btn ghost" id="fCal">Calendar only</button><button class="btn ghost" id="fCopy">Copy text</button></div>
+  <p class="meta">Typefully free plan: 10 posts a month. Bold lead-ins are converted to bold letters LinkedIn can show.</p></div>`}
+ view.innerHTML=h;
+ const on=(id,f)=>{const e=$(id);if(e)e.onclick=f};
+ on("gBack",()=>{S.gen={};rGen()});
+ view.querySelectorAll("input[name=ang]").forEach(r=>r.onchange=()=>{g.angle=+r.value;rGen()});
+ view.querySelectorAll("input[name=hk]").forEach(r=>r.onchange=()=>{g.hk=+r.value});
+ view.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{keepBody();g.v=b.dataset.v;g.hk=0;rGen()});
+ on("gAng",doAngles);on("gVer",doVersions);on("gLong",doLong);on("gUse",useVersion);
+ on("cCopy",()=>copy(g.carousel.map((s,i)=>`Slide ${i+1}: ${s.h}\n${s.t}`).join("\n\n")));
+ on("lCopy",()=>copy(($("lTitle").value)+"\n\n"+$("lBody").value));
+ on("lSave",async()=>{g.long={title:$("lTitle").value,body:$("lBody").value};await savePost({long:g.long});toast("Article saved.")});
+ const ft=$("fText");if(ft)ft.oninput=()=>{g.final=ft.value;const n=ft.value.length;$("fCount").textContent=n.toLocaleString()+" characters · target 1,000–1,500";$("fCount").className="count"+(n<1000||n>1500?" bad":"");$("fPrev").innerHTML=md(ft.value)};
+ const fw=$("fWhen");if(fw)fw.onchange=()=>g.when=fw.value;
+ on("phFind",doPhotos);on("phClear",()=>{g.photoPick=null;rGen()});on("phOwn",()=>{const f=$("phFile");if(f)f.click()});{const f=$("phFile");if(f)f.onchange=()=>addOwn(f.files&&f.files[0])}
+ view.querySelectorAll("[data-ph]").forEach(b=>b.onclick=()=>{const p=photoPool().find(x=>x.id===b.dataset.ph);g.photoPick=g.photoPick&&g.photoPick.id===p.id?null:p;rGen()});
+ on("fBank",async()=>{const text=$("fText").value.trim();if(!text)return toast("The post is empty.");const a=g.article,t=track();
+  if(await bankDraft({text,articleId:a.id,articleTitle:a.title,articleUrl:a.url,source:a.source,topic:a.topic||"",tag:a.tag||"",version:g.chosen||null,hook:g.hk??0,suggestedAtPick:t.sug||null,postId:g.postId||null,photo:g.photoPick||null})){S.gen={};go("drafts")}});
+ on("fSched",()=>finish("schedule"));on("fDraft",()=>finish("draft"));on("fCal",()=>finish("cal"));on("fCopy",()=>copy(bold($("fText").value)));
+}
+/* ---------- Photos (Unsplash) ---------- */
+function img(p){if(p&&p.own&&p.url)return`<img class="uimg" src="${esc(p.url)}" alt="${esc(p.alt||"Your photo")}">`;return`<span class="phx"><span>${esc(p.alt||"Photo")}</span><small>${esc(p.author||"Unsplash")}</small></span>`}
+const credit=p=>p&&p.own?"Your own photo":"Photo by "+esc(p.author)+" on Unsplash";
+const see=p=>p.pageUrl?`<a href="${esc(p.pageUrl)}" target="_blank" rel="noopener">See photo ↗</a>`:"";
+document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.classList.contains("uimg")){const s=document.createElement("span");s.className="phx";s.textContent=t.alt||"Photo";t.replaceWith(s)}},true);
+function photoPool(){const g=S.gen,a=g.article||{},seen=new Set();return[...(a.photos||[]),...(g.photos||[]),...(g.photoPick?[g.photoPick]:[])].filter(p=>p&&p.id&&!seen.has(p.id)&&seen.add(p.id))}
+function photoBlock(){const g=S.gen,pool=photoPool(),P=g.photoPick;
+ return`<label class="f">Photo</label>${P?`<div class="thumb">${img(P)}</div><div class="meta phc">${credit(P)}${P.own?"":" · "+see(P)} · <button class="lnk" id="phClear">Remove</button></div>`:`<p class="meta" style="margin:0">Pick one, or use your own. When you schedule, the engine tries to attach it in Typefully for you.</p>`}
+ ${pool.length?`<div class="grid">${pool.map(p=>`<div class="phc"><button class="ph" data-ph="${esc(p.id)}" aria-pressed="${!!(P&&P.id===p.id)}" aria-label="${esc(p.alt||"Photo")}">${img(p)}</button>${see(p)}</div>`).join("")}</div>`:""}
+ <div class="acts" style="margin-top:8px"><button class="btn ghost" id="phFind" ${mcp?"":"disabled"}>${g.loading==="ph"?'<span class="spin"></span>Searching Unsplash…':pool.length?"Find more photos":"Find photos"}</button><button class="btn ghost" id="phOwn">${g.loading==="own"?'<span class="spin"></span>Adding photo…':"Use my own photo"}</button><input type="file" id="phFile" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden></div>`}
+/* ---------- Own photos + attach in Typefully ---------- */
+async function toJpeg(file){if(/jpe?g|png|webp/i.test(file.type))return file;
+ try{const bm=await createImageBitmap(file),c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;c.getContext("2d").drawImage(bm,0,0);
+  return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("convert")),"image/jpeg",.9))}catch(e){return file}}
+async function addOwn(file){const g=S.gen;if(!file)return;if(file.size>20*1048576)return toast("That photo is over 20 MB. Pick a smaller one.");
+ g.loading="own";rGen();
+ try{const blob=await toJpeg(file);const local="own-"+Date.now().toString(36);let p={id:local,own:true,alt:"Your photo",author:"You",url:URL.createObjectURL(blob)};OWN[local]=blob;
+  if(assets){try{const a=await assets.upload(blob);p={...p,id:"own-"+a.id,assetId:a.id,url:a.url};OWN[p.id]=blob}catch(e){toast("Saved for this session only. It couldn't be stored in the engine.",5000)}}
+  g.photos=[p,...(g.photos||[])];g.photoPick=p}
+ catch(e){toast("Couldn't add that photo: "+(e&&e.message||"unknown"),5000)}
+ g.loading=null;rGen()}
+async function photoBlob(p){if(!p)return null;if(p.own){if(OWN[p.id])return OWN[p.id];const r=await fetch(p.assetId?"/_blob/"+p.assetId:p.url);if(!r.ok)throw new Error("photo "+r.status);return await r.blob()}
+ let u=p.regular||"";try{const r=await mcp.callTool(UN,"download_asset",{asset_id:p.id});const d=r&&r.payload&&r.payload.url;if(d)u=d+(d.includes("?")?"&":"?")+"w=2000"}catch(e){}
+ if(!u)return null;const r=await fetch(u);if(!r.ok)throw new Error("photo "+r.status);return await r.blob()}
+async function attachMedia(p){if(!p||!mcp)return null;
+ try{const blob=await photoBlob(p);if(!blob)return null;const ext=/png/.test(blob.type)?"png":/webp/.test(blob.type)?"webp":"jpg";
+  const up=await tf("create_media_upload",{social_set_id:SS,requestBody:{file_name:(p.own?"my-photo-":"unsplash-")+String(p.id).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40)+"."+ext,alt_text:String(p.alt||"Photo").slice(0,1000)}});
+  if(!up||!up.upload_url||!up.media_id)return null;
+  const put=await fetch(up.upload_url,{method:"PUT",body:blob});if(!put.ok)throw new Error("upload "+put.status);
+  for(let i=0;i<20;i++){await wait(1500);let st=null;try{st=await tf("get_media_status",{social_set_id:SS,media_id:up.media_id})}catch(e){}
+   const v=String(st&&(st.status||st.state)||"").toLowerCase();if(/ready|processed|complete|success|done/.test(v))return up.media_id;if(/fail|error/.test(v))return null}
+  return up.media_id}
+ catch(e){return null}}
+const toPhoto=(r,q)=>({id:r.id,thumb:(r.urls||{}).small||"",regular:(r.urls||{}).regular||"",alt:r.alt_description||r.description||q,author:(r.user||{}).name||"Unsplash photographer",authorUrl:((r.user||{}).links||{}).html||"",pageUrl:(r.links||{}).html||"",query:q});
+function unErr(e){const c=e&&e.code;if(c==="server_not_connected")return"Unsplash isn't connected. Add it in claude.ai Settings → Connectors.";if(c==="needs_reauth")return"Unsplash sign-in expired. Reconnect it in claude.ai Settings → Connectors.";if(c==="approval_required")return"Unsplash needs your OK for this page. Tap again and choose Allow.";if(c==="not_in_manifest")return"Unsplash is turned off for this page.";if(c==="tool_error")return"Unsplash said: "+(e.message||"error");if(c==="server_unavailable")return"Unsplash didn't answer. Try again in a minute.";return"Photo search failed: "+(e&&e.message||"unknown")}
+async function doPhotos(){const g=S.gen,a=g.article||{};if(!mcp)return toast("Open this page on claude.ai to search photos.");g.loading="ph";rGen();
+ try{let qs=[];
+  if(sample){try{const r=await ask(`Suggest 3 short Unsplash photo search queries (2-4 words each) for an image to pair with a LinkedIn post. Literal, visual subjects someone could photograph: ships, ports, trucks, planes, warehouses, factories, servers, screens, packages. No people's faces, no brand logos, no politicians. Each query a different visual idea.
+ARTICLE: ${a.title||""}
+POST:
+${(g.final||"").slice(0,1600)}
+${g.photo?"PHOTO IDEA: "+g.photo:""}
+Return JSON only: {"queries":["","",""]}`,"quick");qs=((r&&r.queries)||[]).filter(Boolean).slice(0,3)}catch(e){}}
+  if(!qs.length)qs=[a.topic||"supply chain logistics"];
+  const out=[];
+  for(const q of qs){const res=await mcp.callTool(UN,"search_photos",{query:q,per_page:4,orientation:"landscape",content_filter:"high"});((res.payload||{}).results||[]).filter(r=>!r.premium).forEach(r=>out.push(toPhoto(r,q)))}
+  g.photos=[...out,...(g.photos||[])].slice(0,15);if(!out.length)toast("No photos found. Try again for new searches.")}
+ catch(e){toast(unErr(e),6000)}
+ g.loading=null;rGen()}
+async function articlePhotos(id){const a=S.articles.find(x=>x.id===id);if(!a||!mcp||S.phBusy)return;S.phBusy=id;rFeed();
+ try{let qs=[];
+  if(sample){try{const r=await ask(`Suggest 2 short Unsplash photo search queries (2-4 words each) for a photo to pair with a LinkedIn post about this news. Literal, visual subjects: ships, ports, trucks, planes, warehouses, factories, servers, screens, packages. No people's faces, no brand logos, no politicians.
+TITLE: ${a.title}
+SUMMARY: ${a.summary||""}
+Return JSON only: {"queries":["",""]}`,"quick");qs=((r&&r.queries)||[]).filter(Boolean).slice(0,2)}catch(e){}}
+  if(!qs.length)qs=[a.topic||"supply chain logistics"];
+  const out=[];for(const q of qs){if(out.length>=3)break;const res=await mcp.callTool(UN,"search_photos",{query:q,per_page:3,orientation:"landscape",content_filter:"high"});((res.payload||{}).results||[]).filter(r=>!r.premium).forEach(r=>{if(out.length<3&&!out.some(o=>o.id===r.id))out.push(toPhoto(r,q))})}
+  if(out.length){await db.doc("articles/"+id).update({photos:out});toast("Photos added.")}else toast("No photos found. Try again.")}
+ catch(e){toast(unErr(e),6000)}
+ S.phBusy=null;rFeed()}
+async function photoNote(p,articleUrl,attached){const src=articleUrl?"Source: "+articleUrl:"";if(!p)return src;
+ if(p.own)return(attached?"PHOTO: your own photo is attached.":"PHOTO: your own photo didn't attach automatically. Add it from your camera roll.")+(src?"\n\n"+src:"");let url=p.pageUrl||"";
+ try{if(mcp){const r=await mcp.callTool(UN,"download_asset",{asset_id:p.id});const u=r&&r.payload&&r.payload.url;if(u)url=u}}catch(e){}
+ const ref="?utm_source=supply_chain_content_engine&utm_medium=referral";
+ return`${attached?"PHOTO (already attached)":"PHOTO (tap, save, attach)"}:\n${url}\n\nCredit: Photo by ${p.author} on Unsplash ${p.authorUrl?p.authorUrl+ref:"https://unsplash.com/"+ref}${src?"\n\n"+src:""}`}
+function keepBody(){const g=S.gen,b=$("vBody");if(b&&g.versions){const cur=g.v||track().sug||"safe_straight";const V=g.versions.find(v=>v.key===cur);if(V)V.body=b.value}}
+async function copy(t){try{await navigator.clipboard.writeText(t);toast("Copied.")}catch{toast("Copy blocked here. Long-press the text to copy.")}}
+function sErr(e){if(e&&e.code==="rate_limited")return"Claude is busy. Wait a minute and try again.";if(e&&e.code==="not_granted")return"Writing isn't allowed in this view.";return"Writing failed: "+(e&&e.message||"unknown error")}
+async function doAngles(){const g=S.gen;g.loading="ang";rGen();
+ try{const r=await ask(`${rules()}
+
+${artBlock(g.article)}
+
+Task: propose 3 distinct angles for a LinkedIn post on this article. At least one must be contrarian. Mix story types: "news" (tell the real story from the article) or "picture-this" (a clearly hypothetical scene a reader could live through). Each angle needs a sharp take an exec would stop for.
+Return JSON only: {"angles":[{"title":"3-7 words","take":"1-2 sentences","story":"news"|"picture-this","why":"why this lands now, 1 sentence"}]}`,"default");
+  g.angles=(r&&r.angles||[]).slice(0,3);g.angle=0;g.versions=null;g.final=null}catch(e){toast(sErr(e),5000)}
+ g.loading=null;rGen()}
+async function doVersions(){const g=S.gen,ang=g.angles[g.angle];g.loading="ver";rGen();
+ try{const r=await ask(`${rules()}
+
+${artBlock(g.article)}
+
+ANGLE: ${ang.title} — ${ang.take} (story type: ${ang.story})
+
+Task: write this post in 4 versions:
+- safe_straight: safe and insightful, no jokes.
+- safe_funny: safe and insightful, with 1-2 lines of dry, smart humor.
+- contra_straight: a contrarian take, argued with the facts, no jokes.
+- contra_funny: the contrarian take with 1-2 lines of dry humor.
+For EACH version give 5 different hooks (the first line) and the body that follows the hook. Body is 850-1,350 characters so hook+body lands at 1,000-1,500. Use **double asterisks** only around the bold lead-in of each numbered takeaway. Credit numbers to the source by name in the text, never a link. End with a question to the reader.
+Also give one photo idea Frank could shoot or source (no real people's faces, no logos), and a 6-8 slide carousel outline.
+Return JSON only: {"versions":[{"key":"safe_straight","hooks":["","","","",""],"body":""},{"key":"safe_funny",...},{"key":"contra_straight",...},{"key":"contra_funny",...}],"photo":"","carousel":[{"h":"slide headline","t":"slide text, under 25 words"}]}`,"complex");
+  if(!r||!Array.isArray(r.versions)||r.versions.length<4)throw{message:"came back incomplete, try again"};
+  g.versions=r.versions.map(v=>({key:v.key,hooks:(v.hooks||[]).slice(0,5),body:v.body||""}));g.photo=r.photo;g.carousel=r.carousel;g.v=track().sug||"safe_straight";g.hk=0;g.final=null;
+  await savePost({status:"idea",angle:ang,versions:g.versions,photo:g.photo||"",carousel:g.carousel||[]});
+ }catch(e){toast(sErr(e),5000)}
+ g.loading=null;rGen()}
+async function doLong(){const g=S.gen,ang=g.angles&&g.angles[g.angle];g.loading="long";rGen();
+ try{const r=await ask(`${rules()}
+
+${artBlock(g.article)}
+${ang?`ANGLE: ${ang.title} — ${ang.take}`:""}
+
+Task: write a LinkedIn article (newsletter style) of 800-1,000 words, never under 600. Same voice and guardrails, but longer paragraphs are fine (2-4 sentences). Shape: a title, a one-line subtitle, an opening scene (the real news or a clearly hypothetical 'picture this'), 3-4 sections with short plain headings, numbers credited to their source by name, a practical "what to do Monday" section with 3 moves, and a closing question. End with a "Sources" list with the article URL. Use markdown headings (##) and **bold** sparingly.
+Return JSON only: {"title":"","subtitle":"","body":"markdown, starting with the subtitle in italics"}`,"complex");
+  g.long={title:r.title||"",body:r.body||""};await savePost({long:g.long})}catch(e){toast(sErr(e),5000)}
+ g.loading=null;rGen()}
+function useVersion(){keepBody();const g=S.gen,t=track(),cur=g.v||t.sug||"safe_straight",V=g.versions.find(v=>v.key===cur);
+ g.chosen=cur;g.final=V.hooks[g.hk??0]+"\n\n"+V.body;rGen();$("compose").scrollIntoView({behavior:"smooth"})}
+async function savePost(patch){const g=S.gen;if(!db)return;try{
+ if(!g.postId){const ref=db.collection("posts").doc();g.postId=ref.id;await ref.set({articleId:g.article.id,articleTitle:g.article.title,articleUrl:g.article.url,source:g.article.source,topic:g.article.topic||"",tag:g.article.tag,createdAt:new Date().toISOString(),...patch})}
+ else await db.doc("posts/"+g.postId).update(patch)}catch(e){toast("Couldn't save: "+e.message,5000)}}
+function tfErr(e){const c=e&&e.code;if(c==="server_not_connected")return"Typefully isn't connected for this page. Add it in claude.ai Settings → Connectors.";if(c==="needs_reauth")return"Typefully sign-in expired. Reconnect it in claude.ai Settings → Connectors.";if(c==="approval_required")return"Typefully needs your OK for this page. Tap again and choose Allow.";if(c==="not_in_manifest")return"Typefully is turned off for this page.";if(c==="tool_error")return"Typefully said: "+(e.message||"error");if(c==="server_unavailable"||c==="upstream_error")return"No clear answer from Typefully. Check its queue before trying again so you don't double-post.";return"Typefully failed: "+(e&&e.message||"unknown")}
+async function tf(tool,input){if(!mcp)throw{code:"server_not_connected"};const r=await mcp.callTool(TF,tool,input);return r.payload}
+async function finish(mode){const g=S.gen,text=$("fText").value.trim(),when=$("fWhen").value;
+ if(!text)return toast("The post is empty.");if(mode!=="draft"&&!when)return toast("Pick a date and time.");
+ const iso=when?new Date(when).toISOString():null,t=track();
+ const pick={finalText:text,chosenVersion:g.chosen,chosenHook:g.hk??0,suggestedAtPick:t.sug||null,pickedAt:new Date().toISOString(),scheduledFor:iso,photoPick:g.photoPick||null};
+ if(mode==="cal"){await savePost({...pick,status:"planned"});toast("Saved to your calendar.");S.gen={};return go("cal")}
+ const btn=$(mode==="schedule"?"fSched":"fDraft");btn.disabled=true;btn.innerHTML='<span class="spin"></span>Sending…';
+ try{let mid=null;if(g.photoPick){btn.innerHTML='<span class="spin"></span>Attaching photo…';mid=await attachMedia(g.photoPick);btn.innerHTML='<span class="spin"></span>Sending…'}
+  const post={text:bold(text)};if(mid)post.media_ids=[mid];
+  const body={platforms:{linkedin:{enabled:true,posts:[post]}},draft_title:g.article.title.slice(0,200),scratchpad_text:await photoNote(g.photoPick,g.article.url,!!mid)};
+  if(mode==="schedule")body.publish_at=iso;else if(iso)body.plan_at=iso;
+  const p=await tf("create_draft",{social_set_id:SS,requestBody:body});const id=p&&(p.id??(p.draft&&p.draft.id));
+  await savePost({...pick,status:mode==="schedule"?"scheduled":"draft",typefullyId:id??null,photoAttached:!!mid});
+  toast((mode==="schedule"?"Scheduled in Typefully.":"Saved in Typefully as a draft.")+(g.photoPick?(mid?" Photo attached.":" Photo didn't attach; add it in Typefully."):""),5000);S.gen={};go("cal")}
+ catch(e){toast(tfErr(e),6000);btn.disabled=false;btn.textContent=mode==="schedule"?"Schedule in Typefully":"Save as Typefully draft"}}
+
+/* ---------- Calendar ---------- */
+function rCal(){
+ if(!S.loaded.p){view.innerHTML=`<p class="note">Loading calendar…</p>`;return}
+ const items=S.posts.filter(p=>p.finalText).sort((a,b)=>String(a.scheduledFor||"9").localeCompare(String(b.scheduledFor||"9")));
+ const now=new Date().toISOString(),up=items.filter(p=>!p.scheduledFor||p.scheduledFor>=now||p.status!=="posted"),past=items.filter(p=>!up.includes(p));
+ const row=p=>{const d=p.scheduledFor?new Date(p.scheduledFor):null,ed=S.calEdit===p.id;
+  return`<div class="row"><div class="num wide">${d?d.getDate():"—"}<small>${d?d.toLocaleDateString(undefined,{weekday:"short",month:"short"})+" · "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}):"No date"}</small></div><div>
+  <div><span class="pill ${p.status==="scheduled"?"red":""}">${esc({scheduled:"Scheduled",draft:"Typefully draft",planned:"Planned",posted:"Posted"}[p.status]||p.status)}</span><span class="meta">${esc(VL(p.chosenVersion))}</span></div>
+  <h3 style="margin-top:8px">${esc((p.finalText||"").split("\n")[0])}</h3><p class="meta">${esc(p.articleTitle||"")}</p>${p.photoPick?`<div class="thumb sm">${img(p.photoPick)}</div><div class="meta">${p.photoAttached?"Photo attached in Typefully":"Photo not attached yet · details are in the Typefully post's notes"}</div>`:""}
+  ${ed?`<textarea id="eText" style="min-height:300px">${esc(p.finalText)}</textarea><label class="f" for="eWhen">Post on</label><input type="datetime-local" id="eWhen" value="${d?localInput(d):""}">
+   <div class="acts"><button class="btn red" data-save="${p.id}">Save changes</button><button class="btn ghost" data-bank="${p.id}">Bank in Drafts</button><button class="btn ghost" data-cancel>Cancel</button>${p.status!=="posted"?`<button class="btn ghost" data-posted="${p.id}">Mark posted</button>`:""}<button class="btn ghost" data-del="${p.id}">Delete</button></div>`
+   :`<div class="acts"><button class="btn ghost" data-edit="${p.id}">Edit</button></div>`}</div></div>`};
+ view.innerHTML=`<h2 class="wide">Upcoming</h2>`+(up.length?up.map(row).join(""):`<p class="note">Nothing on the calendar yet. Write a post from the feed.</p>`)+(past.length?`<details><summary>Posted (${past.length})</summary>${past.reverse().map(row).join("")}</details>`:"");
+ view.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{S.calEdit=b.dataset.edit;rCal()});
+ view.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=()=>{S.calEdit=null;rCal()});
+ view.querySelectorAll("[data-save]").forEach(b=>b.onclick=()=>calSave(b.dataset.save,b));
+ view.querySelectorAll("[data-posted]").forEach(b=>b.onclick=async()=>{await db.doc("posts/"+b.dataset.posted).update({status:"posted"});S.calEdit=null;toast("Marked posted. Add impressions in the Library.")});
+ view.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>calDel(b.dataset.del,b));
+ view.querySelectorAll("[data-bank]").forEach(b=>b.onclick=async()=>{const p=S.posts.find(x=>x.id===b.dataset.bank),text=($("eText")||{}).value||p.finalText;b.disabled=true;
+  if(await bankDraft({text:text.trim(),articleId:p.articleId||null,articleTitle:p.articleTitle||"",articleUrl:p.articleUrl||"",source:p.source||"",topic:p.topic||"",tag:p.tag||"",version:p.chosenVersion||null,hook:p.chosenHook??0,suggestedAtPick:p.suggestedAtPick||null,postId:p.id,status:p.typefullyId||p.status==="posted"?"scheduled":"banked"})){S.calEdit=null;go("drafts")}else b.disabled=false});
+}
+
+/* ---------- Drafts ---------- */
+async function bankDraft(src){if(!db){toast("Sign in on claude.ai first.");return false}const now=new Date().toISOString();
+ try{const ref=db.collection("drafts").doc();await ref.set({learn:true,status:"banked",createdAt:now,updatedAt:now,...src});toast("Banked in Drafts. Writing now learns from it.");return true}
+ catch(e){toast("Couldn't bank: "+e.message,5000);return false}}
+const confirmDDel=new Set();
+function rDrafts(){
+ if(!S.loaded.d){view.innerHTML=`<p class="note">${db?"Loading drafts…":"Sign in on claude.ai to load your drafts."}</p>`;return}
+ const ds=[...S.drafts].sort((a,b)=>String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||"")));
+ const learnN=ds.filter(d=>d.learn!==false&&d.text).length;
+ const row=d=>{const dt=new Date(d.updatedAt||d.createdAt||Date.now()),ed=S.draftEdit===d.id,n=(d.text||"").length,sch=d.status==="scheduled";
+  return`<div class="row"><div class="num wide">${dt.getDate()}<small>${dt.toLocaleDateString(undefined,{month:"short",year:"numeric"})}</small></div><div>
+  <div class="top"><span class="pill ${sch?"red":""}">${sch?"Scheduled":"Banked"}</span>${d.version?`<span class="meta">${esc(VL(d.version))}</span>`:""}<span class="meta">${d.learn!==false?"· learning from this":"· not used for learning"}</span></div>
+  <h3>${esc((d.text||"").split("\n")[0]||"Untitled draft")}</h3>${d.photo?`<div class="thumb sm">${img(d.photo)}</div><div class="meta">${credit(d.photo)}${ed?` · <button class="lnk" data-dphx="${d.id}">Remove photo</button>`:""}</div>`:""}${d.articleTitle?`<p class="meta">${d.articleUrl?`<a href="${esc(d.articleUrl)}" target="_blank" rel="noopener">${esc(d.articleTitle)} ↗</a>`:esc(d.articleTitle)}</p>`:""}
+  ${ed?`<textarea id="dText" style="min-height:300px">${esc(d.text)}</textarea><div class="count ${n<1000||n>1500?"bad":""}" id="dCount">${n.toLocaleString()} characters · target 1,000–1,500</div>
+   <details><summary>Preview with bold lead-ins</summary><div class="prev" id="dPrev">${md(d.text)}</div></details>
+   <div class="tog"><span>Learn from this draft<span class="lbl">Writing studies your newest 5 for voice</span></span><input type="checkbox" class="sw" id="dLearn" ${d.learn!==false?"checked":""} aria-label="Learn from this draft"></div>
+   ${sch?"":`<label class="f" for="dWhen">Post on</label><input type="datetime-local" id="dWhen" value="${esc(localInput(nextSlot()))}">`}
+   <div class="acts"><button class="btn" data-dsave="${d.id}">Save</button>${sch?"":`<button class="btn red" data-dsched="${d.id}">Schedule in Typefully</button>`}<button class="btn ghost" data-dcopy="${d.id}">Copy text</button><button class="btn ghost" data-dcancel>Close</button><button class="btn ghost" data-ddel="${d.id}">Delete</button></div>`
+   :`<div class="prev" style="max-height:9.6em;overflow:hidden">${md(d.text)}</div><div class="acts"><button class="btn ghost" data-dopen="${d.id}">Open</button></div>`}</div></div>`};
+ view.innerHTML=`<h2 class="wide">Drafts</h2><p class="meta">Your bank of finished posts. Every angle, version and article Claude writes studies the newest 5 marked “learn from this” to match your voice${learnN?` (${Math.min(5,learnN)} in use now)`:""}. It never reuses their facts.</p>
+ <details ${ds.length?"":"open"}><summary>Add a draft by hand</summary><label class="f" for="dNew" style="margin-top:0">Paste a finished post</label><textarea id="dNew" placeholder="Hook line, then the body…"></textarea><div class="acts"><button class="btn" id="dAdd">Bank it</button></div></details>`
+ +(ds.length?ds.map(row).join(""):`<p class="note">Nothing banked yet. Finish a post in Generate and tap “Bank in Drafts”.</p>`);
+ const on=(id,f)=>{const e=$(id);if(e)e.onclick=f};
+ on("dAdd",async()=>{const t=$("dNew").value.trim();if(!t)return toast("Paste a post first.");await bankDraft({text:t})});
+ view.querySelectorAll("[data-dopen]").forEach(b=>b.onclick=()=>{S.draftEdit=b.dataset.dopen;rDrafts()});
+ view.querySelectorAll("[data-dcancel]").forEach(b=>b.onclick=()=>{S.draftEdit=null;rDrafts()});
+ const dt=$("dText");if(dt)dt.oninput=()=>{const n=dt.value.length;$("dCount").textContent=n.toLocaleString()+" characters · target 1,000–1,500";$("dCount").className="count"+(n<1000||n>1500?" bad":"");$("dPrev").innerHTML=md(dt.value)};
+ const dl=$("dLearn");if(dl)dl.onchange=async()=>{try{await db.doc("drafts/"+S.draftEdit).update({learn:dl.checked});toast(dl.checked?"Writing will learn from this draft.":"This draft won't be used for learning.")}catch(e){toast("Couldn't save: "+e.message)}};
+ view.querySelectorAll("[data-dsave]").forEach(b=>b.onclick=async()=>{try{await db.doc("drafts/"+b.dataset.dsave).update({text:$("dText").value.trim(),updatedAt:new Date().toISOString()});toast("Draft saved.")}catch(e){toast("Couldn't save: "+e.message)}});
+ view.querySelectorAll("[data-dcopy]").forEach(b=>b.onclick=()=>copy(bold($("dText").value)));
+ view.querySelectorAll("[data-ddel]").forEach(b=>b.onclick=async()=>{const id=b.dataset.ddel;if(!confirmDDel.has(id)){confirmDDel.add(id);b.textContent="Tap again to delete";b.classList.add("red");return}
+  try{await db.doc("drafts/"+id).delete();S.draftEdit=null;toast("Draft deleted.")}catch(e){toast("Couldn't delete: "+e.message)}});
+ view.querySelectorAll("[data-dsched]").forEach(b=>b.onclick=()=>draftSchedule(b.dataset.dsched,b));
+ view.querySelectorAll("[data-dphx]").forEach(b=>b.onclick=async()=>{try{await db.doc("drafts/"+b.dataset.dphx).update({photo:null,updatedAt:new Date().toISOString()});toast("Photo removed.")}catch(e){toast("Couldn't save: "+e.message)}});
+}
+async function draftSchedule(id,btn){const d=S.drafts.find(x=>x.id===id),text=$("dText").value.trim(),w=$("dWhen").value;
+ if(!text)return toast("The post is empty.");if(!w)return toast("Pick a date and time.");
+ const iso=new Date(w).toISOString(),now=new Date().toISOString();btn.disabled=true;btn.innerHTML='<span class="spin"></span>Sending…';
+ try{let mid=null;if(d.photo){btn.innerHTML='<span class="spin"></span>Attaching photo…';mid=await attachMedia(d.photo);btn.innerHTML='<span class="spin"></span>Sending…'}
+  const post={text:bold(text)};if(mid)post.media_ids=[mid];
+  const body={platforms:{linkedin:{enabled:true,posts:[post]}},draft_title:(d.articleTitle||text.split("\n")[0]).slice(0,200),publish_at:iso};const note=await photoNote(d.photo,d.articleUrl,!!mid);if(note)body.scratchpad_text=note;
+  const p=await tf("create_draft",{social_set_id:SS,requestBody:body});const tid=p&&(p.id??(p.draft&&p.draft.id));
+  const pick={finalText:text,chosenVersion:d.version||null,chosenHook:d.hook??0,suggestedAtPick:d.suggestedAtPick||null,pickedAt:now,scheduledFor:iso,status:"scheduled",typefullyId:tid??null,draftId:id,photoPick:d.photo||null,photoAttached:!!mid};
+  let pid=d.postId&&S.posts.some(x=>x.id===d.postId)?d.postId:null;
+  if(pid)await db.doc("posts/"+pid).update(pick);
+  else{const ref=db.collection("posts").doc();pid=ref.id;await ref.set({articleId:d.articleId||null,articleTitle:d.articleTitle||"",articleUrl:d.articleUrl||"",source:d.source||"",topic:d.topic||"",tag:d.tag||"",createdAt:now,...pick})}
+  await db.doc("drafts/"+id).update({text,status:"scheduled",postId:pid,typefullyId:tid??null,scheduledFor:iso,updatedAt:now});
+  S.draftEdit=null;toast("Scheduled in Typefully."+(d.photo?(mid?" Photo attached.":" Photo didn't attach; add it in Typefully."):"")+" The draft stays banked for learning.",5000);go("cal")}
+ catch(e){toast(tfErr(e),6000);btn.disabled=false;btn.textContent="Schedule in Typefully"}}
+async function calSave(id,btn){const p=S.posts.find(x=>x.id===id),text=$("eText").value.trim(),w=$("eWhen").value,iso=w?new Date(w).toISOString():null;
+ btn.disabled=true;try{
+ if(p.typefullyId&&p.status!=="posted"){const rb={platforms:{linkedin:{enabled:true,posts:[{text:bold(text)}]}}};if(iso){if(p.status==="scheduled")rb.publish_at=iso;else rb.plan_at=iso}
+  await tf("edit_draft",{social_set_id:SS,draft_id:p.typefullyId,requestBody:rb})}
+ await db.doc("posts/"+id).update({finalText:text,scheduledFor:iso});S.calEdit=null;toast(p.typefullyId?"Updated here and in Typefully.":"Updated.")}
+ catch(e){toast(tfErr(e),6000);btn.disabled=false}}
+const confirmDel=new Set();
+async function calDel(id,btn){if(!confirmDel.has(id)){confirmDel.add(id);btn.textContent="Tap again to delete";btn.classList.add("red");return}
+ const p=S.posts.find(x=>x.id===id);try{if(p.typefullyId&&p.status!=="posted")await tf("delete_draft",{social_set_id:SS,draft_id:p.typefullyId});await db.doc("posts/"+id).delete();S.calEdit=null;toast("Deleted.")}catch(e){toast(tfErr(e),6000)}}
+
+/* ---------- Library ---------- */
+function rLib(){
+ if(!S.loaded.p){view.innerHTML=`<p class="note">Loading library…</p>`;return}
+ const posts=[...S.posts].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+ const fol=+S.settings.followers||0,now=new Date();
+ const goal=(n,date,label)=>{const wk=Math.max(1,(new Date(date)-now)/6048e5),need=Math.max(0,n-fol);return`<div><div class="lbl">${label}</div><div class="big wide">${Math.min(100,Math.round(fol/n*100))}%</div><div class="meter"><i style="width:${Math.min(100,fol/n*100)}%"></i></div><div class="lbl">${need.toLocaleString()} to go · about ${Math.ceil(need/wk).toLocaleString()} a week</div></div>`};
+ const imp=posts.reduce((s,p)=>s+(+p.impressions||0),0),gained=posts.reduce((s,p)=>s+(+p.followersGained||0),0);
+ view.innerHTML=`<h2 class="wide">Library</h2><div class="goal">
+  <div><label class="f" for="folN" style="margin-top:0">Followers today</label><input type="number" id="folN" inputmode="numeric" value="${fol||""}" placeholder="e.g. 480"><div class="lbl" style="margin-top:6px">${imp.toLocaleString()} impressions and ${gained.toLocaleString()} followers logged across ${posts.filter(p=>p.status==="posted").length} posted</div></div>
+  ${goal(30000,"2028-06-30","30K by mid-2028")}${goal(100000,"2030-12-31","100K by 2030")}</div>
+  ${posts.length?`<table class="stack"><thead><tr><th>Date</th><th>Post</th><th>Version</th><th>Suggested hit</th><th>Status</th><th class="n">Impressions</th><th class="n">New followers</th><th></th></tr></thead><tbody>${posts.map(p=>`<tr>
+  <td data-l="Date">${esc(fmtD(p.scheduledFor||p.createdAt))}</td>
+  <td data-l="Post">${esc((p.finalText||"").split("\n")[0]||p.articleTitle)}</td>
+  <td data-l="Version">${esc(p.chosenVersion?VL(p.chosenVersion):"Not picked")}</td>
+  <td data-l="Suggested hit">${p.suggestedAtPick?(p.suggestedAtPick===p.chosenVersion?"Yes":"No · was "+esc(VL(p.suggestedAtPick))):"—"}</td>
+  <td data-l="Status">${esc({idea:"Idea",scheduled:"Scheduled",draft:"Typefully draft",planned:"Planned",posted:"Posted"}[p.status]||p.status||"")}</td>
+  <td class="n" data-l="Impressions"><input type="number" inputmode="numeric" data-m="impressions" data-id="${p.id}" value="${p.impressions??""}" aria-label="Impressions"></td>
+  <td class="n" data-l="New followers"><input type="number" inputmode="numeric" data-m="followersGained" data-id="${p.id}" value="${p.followersGained??""}" aria-label="New followers"></td>
+  <td data-l="">${p.versions?`<button class="btn ghost" data-open="${p.id}">Open</button>`:""}</td></tr>`).join("")}</tbody></table>`:`<p class="note">Every post you write lands here with its version, hook and results.</p>`}`;
+ $("folN").onchange=e=>saveSettings({followers:+e.target.value||0,followersAt:new Date().toISOString()});
+ view.querySelectorAll("input[data-m]").forEach(i=>i.onchange=async()=>{try{await db.doc("posts/"+i.dataset.id).update({[i.dataset.m]:i.value===""?null:+i.value})}catch(e){toast("Couldn't save: "+e.message)}});
+ view.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{const p=S.posts.find(x=>x.id===b.dataset.open),a=S.articles.find(x=>x.id===p.articleId)||{id:p.articleId,title:p.articleTitle,url:p.articleUrl,source:p.source,tag:p.tag,summary:"",stats:[]};
+  S.gen={article:a,postId:p.id,angles:p.angle?[p.angle]:null,angle:0,versions:p.versions,photo:p.photo,carousel:p.carousel,long:p.long,v:p.chosenVersion,hk:p.chosenHook||0,final:p.finalText&&p.status==="idea"?p.finalText:null,chosen:p.chosenVersion,photoPick:p.photoPick||null};go("gen")});
+}
+
+/* ---------- Playbook ---------- */
+function rPb(){const p=pb();
+ view.innerHTML=`<h2 class="wide">Playbook</h2><p class="meta">Every angle, version and article is written from these rules. The Mon/Wed/Fri research runs read them too.</p>`+PB_FIELDS.map(([k,l])=>`<label class="f" for="pb_${k}">${l}</label><textarea id="pb_${k}" style="min-height:${k==="loves"?70:110}px">${esc(p[k])}</textarea>`).join("")+`<div class="acts"><button class="btn red" id="pbSave">Save playbook</button><button class="btn ghost" id="pbReset">Restore defaults</button></div>`;
+ $("pbSave").onclick=async()=>{const o={};PB_FIELDS.forEach(([k])=>o[k]=$("pb_"+k).value.trim());o.updatedAt=new Date().toISOString();try{await db.doc("playbook/main").set(o);S.pb=o;toast("Playbook saved.")}catch(e){toast("Couldn't save: "+e.message)}};
+ $("pbReset").onclick=()=>{PB_FIELDS.forEach(([k])=>$("pb_"+k).value=PB_DEFAULT[k]);toast("Defaults restored. Tap Save to keep them.")};
+}
+
+/* ---------- boot ---------- */
+const start=(location.hash||"").slice(1);if(["feed","gen","drafts","cal","lib","pb"].includes(start))S.tab=start;
+render();
+const slow=setTimeout(()=>{if(!S.loaded.a){view.insertAdjacentHTML("afterbegin",`<p class="note red">Your data can't be reached yet. It will appear when the connection answers.</p>`)}},10000);
+const rer=()=>{if(!busy())render();else paintStrip()};
+(async()=>{
+ const C=window.claude;if(!C||!C.use){clearTimeout(slow);view.innerHTML=`<p class="note red">Open this page on claude.ai to use the engine.</p>`;return}
+ C.use("sample").then(s=>{sample=s;if(S.tab==="gen")rer()});
+ C.use("mcp").then(m=>{mcp=m;if(m)rer()});
+ C.use("assets").then(a=>{assets=a});
+ db=await C.use("db");
+ if(!db){clearTimeout(slow);view.innerHTML=`<p class="note red">Sign in on claude.ai to load your engine.</p>`;return}
+ const err=e=>toast("Data error: "+(e&&e.message||e&&e.code),5000);
+ db.collection("articles").onSnapshot(s=>{S.articles=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.a=1;clearTimeout(slow);rer()},err);
+ db.collection("batches").onSnapshot(s=>{S.batches=s.docs.map(d=>({id:d.id,...d.data()}));rer()},err);
+ db.collection("trends").onSnapshot(s=>{S.trends=s.docs.map(d=>({id:d.id,...d.data()}));if(S.tab==="feed")rer()},err);
+ db.collection("drafts").onSnapshot(s=>{S.drafts=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.d=1;rer()},err);
+ db.collection("posts").onSnapshot(s=>{S.posts=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded.p=1;rer()},err);
+ db.doc("settings/main").onSnapshot(d=>{if(d.exists)S.settings=Object.assign({autoResearch:true,autopilot:false},d.data());paintStrip()},err);
+ db.doc("playbook/main").onSnapshot(d=>{if(d.exists)S.pb=d.data()},err);
+})();
+}
+</script>
+</body>
+</html>

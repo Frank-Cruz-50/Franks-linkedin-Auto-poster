@@ -1,0 +1,145 @@
+// SQLite database for the content engine. Timestamps are ISO strings (same as the
+// original artifact) so seeded data round-trips unchanged. List fields are JSON.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Batch {
+  id        String @id
+  createdAt String
+  note      String @default("")
+  mix       Json?
+}
+
+model Article {
+  id             String  @id
+  batchId        String
+  createdAt      String
+  tag            String  @default("headline")
+  topic          String  @default("")
+  title          String
+  source         String  @default("")
+  date           String  @default("")
+  url            String  @default("")
+  summary        String  @default("")
+  stats          Json?
+  why            String  @default("")
+  extra          String?
+  trendScore     Int?
+  trendWhy       String?
+  trendSource    String?
+  trendCheckedAt String?
+  photos         Json?
+
+  @@index([batchId])
+}
+
+model Trend {
+  id        String @id
+  checkedAt String
+  source    String @default("news")
+  topics    Json?
+  formats   Json?
+}
+
+model Post {
+  id              String   @id
+  articleId       String?
+  articleTitle    String   @default("")
+  articleUrl      String   @default("")
+  source          String   @default("")
+  topic           String   @default("")
+  tag             String   @default("")
+  createdAt       String
+  status          String   @default("idea")
+  angle           Json?
+  versions        Json?
+  photo           String?
+  carousel        Json?
+  long            Json?
+  finalText       String?
+  chosenVersion   String?
+  chosenHook      Int?
+  suggestedAtPick String?
+  pickedAt        String?
+  scheduledFor    String?
+  typefullyId     String?
+  photoPick       Json?
+  photoAttached   Boolean?
+  impressions     Int?
+  followersGained Int?
+  autopilot       Boolean  @default(false)
+  draftId         String?
+}
+
+model Draft {
+  id              String  @id
+  text            String
+  learn           Boolean @default(true)
+  status          String  @default("banked")
+  version         String?
+  hook            Int?
+  articleId       String?
+  articleTitle    String  @default("")
+  articleUrl      String  @default("")
+  source          String  @default("")
+  topic           String  @default("")
+  tag             String  @default("")
+  suggestedAtPick String?
+  postId          String?
+  typefullyId     String?
+  scheduledFor    String?
+  photo           Json?
+  createdAt       String
+  updatedAt       String
+}
+
+model Playbook {
+  id         String @id @default("main")
+  voice      String @default("")
+  structure  String @default("")
+  guardrails String @default("")
+  hooks      String @default("")
+  loves      String @default("")
+  banned     String @default("")
+  research   String @default("")
+  updatedAt  String @default("")
+}
+
+model Settings {
+  id                String   @id @default("main")
+  autoResearch      Boolean  @default(true)
+  autopilot         Boolean  @default(false)
+  ready85           Boolean  @default(false)
+  ready85At         String?
+  followers         Int?
+  followersAt       String?
+  searchRequestedAt String?
+  searchHandledAt   String?
+  searchExclude     Json?
+}
+
+// One row per AI run or background job: turns, duration, which model ran, limits hit.
+model JobRun {
+  id            String  @id
+  kind          String // research | angles | versions | long | photoQueries | autopilot
+  trigger       String  @default("manual") // manual | scheduled | catchup
+  provider      String? // claude | gemini
+  model         String?
+  status        String  @default("running") // running | ok | error | limit
+  progress      String  @default("")
+  error         String?
+  limitResetsAt String?
+  turns         Int?
+  durationMs    Int?
+  resultRef     String?
+  startedAt     String
+  finishedAt    String?
+
+  @@index([kind, startedAt])
+}
