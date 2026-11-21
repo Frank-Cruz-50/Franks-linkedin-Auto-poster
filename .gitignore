@@ -12,3 +12,4 @@ coverage/
 # Frank's personal files: kept on his computer, not in the public repo.
 FRANK_VOICE.md
 seed/seed.json
+cron.log

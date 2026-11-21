@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- macOS: starts `npm run cron` at login. Replace APP_FOLDER (2 places) and check the PATH line. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.frank.content-engine.cron</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>-lc</string><string>cd "APP_FOLDER" &amp;&amp; npm run cron</string></array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>APP_FOLDER/cron.log</string>
+  <key>StandardErrorPath</key><string>APP_FOLDER/cron.log</string>
+</dict>
+</plist>
